@@ -60,7 +60,7 @@ class MergeRequest < ActiveRecord::Base
     Thread.new do
       begin
         on_git_repository(patch) do |dir|
-          if git_am(dir, patch) and git_push(dir)
+          if git_am(dir, patch) and git_push(dir, target_branch)
             accepted!
           else
             add_history_event reviewer, 'failed to integrate merge request'
@@ -100,6 +100,21 @@ review it!
 eot
   end
 
+  def push_to_gitlab_ci
+    Thread.new do
+      begin
+        on_git_repository(patch) do |dir|
+          branch_name = "mr-#{id}-version-#{patches.count}"
+          if git_am(dir, patch) and git_push(dir, branch_name)
+            patch.gitlab_ci_hash = `git rev-parse HEAD`.strip
+            patch.save
+          end
+        end
+      ensure
+        ActiveRecord::Base.connection.close
+      end
+    end
+  end
 private
 
   def write_history
@@ -140,8 +155,8 @@ private
     call "cd #{dir} && git am #{file.path}"
   end
 
-  def git_push dir
-    call "cd #{dir} && git push origin master:#{target_branch}"
+  def git_push dir, branch
+    call "cd #{dir} && git push origin master:#{branch}"
   end
 
   def output
