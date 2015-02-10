@@ -52,7 +52,7 @@ module Reviewit
     end
 
     def rename_local_branch mr_id
-      branch = options[:branch]
+      branch = `git symbolic-ref -q HEAD`.gsub('refs/heads/', '').strip
       name = branch.start_with?('mr-') ? branch.split('-')[2] : branch
       new_name = "mr-#{mr_id}-#{name}"
 
